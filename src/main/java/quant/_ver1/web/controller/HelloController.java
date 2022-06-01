@@ -1,5 +1,6 @@
 package quant._ver1.web.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.jsoup.select.Selector;
@@ -14,8 +15,7 @@ import org.jsoup.nodes.Document;
 
 import javax.management.Query;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Controller
 public class HelloController {
@@ -50,19 +50,29 @@ public class HelloController {
         String[] company_name = sj.getCompany_name();
         int temp_max = 100;
         List company_list = new ArrayList();
+        List<Company> company_market_code = new ArrayList();
         for (int i = 0; i < temp_max; i++) {
             String companySixCode = companyCodeCnvToSixNumber(company_code[i]);
 
             String URL = "https://finance.naver.com/item/sise.naver?code=" + companySixCode;
             Document doc = Jsoup.connect(URL).get();
             Elements select = doc.select("#_sise_market_sum");
-            System.out.println(company_name[i]+"의 시가총액: " + select.text());
-            int[] test = {companyMarketCapCnvToInteger(select.text()), Integer.valueOf(companySixCode)};
-            company_list.add(test);
+            company_market_code.add(new Company(companyMarketCapCnvToInteger(select.text()), companySixCode, company_name[i]));
         }
-        for (int i = 0; i < company_list.size(); i++) {
-            System.out.println("company_list = " + company_list);
+        Collections.sort(company_market_code);
+        for (Company company : company_market_code) {
+
+            String URL_2 = "https://finance.naver.com/item/sise.naver?code=" + company.code;
+            Document doc_2 = Jsoup.connect(URL_2).get();
+            Elements select_2 = doc_2.select("#_sise_per");
+            //PER
+            System.out.println("company.marketCap = " + company.marketCap + " code = " + company.code + " 회사 = " + company.name + " per = " + select_2.text());
+
+            //차라리 백데이터? 아무튼 그 어떤날에 얼마인지 확인하는거 해야함
         }
+
+
+
         return "sangjang";
     }
 
@@ -104,6 +114,7 @@ public class HelloController {
         String s = company_text.replaceAll(",", "");
         return Integer.valueOf(s);
     }
+
     static class Hello {
         private String name;
 
@@ -113,6 +124,60 @@ public class HelloController {
 
         public void setName(String name) {
             this.name = name;
+        }
+    }
+
+    static class Company implements Comparable<Company>{
+        private int marketCap;
+        private String code;
+        private String name;
+
+        @Override
+        public int compareTo(Company c) {
+            if (this.marketCap > c.marketCap) {
+                return 1;
+            } else if (this.marketCap < c.marketCap) {
+                return -1;
+            } else {
+                return 0;
+            }
+        }
+
+        public int getMarketCap() {
+            return marketCap;
+        }
+
+        public void setMarketCap(int marketCap) {
+            this.marketCap = marketCap;
+        }
+
+        public String getCode() {
+            return code;
+        }
+
+        public void setCode(String code) {
+            this.code = code;
+        }
+
+        public Company(int marketCap, String code, String name) {
+            this.marketCap = marketCap;
+            this.code = code;
+            this.name = name;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+        @Override
+        public String toString() {
+            return "Company{" +
+                    "marketCap=" + marketCap +
+                    ", code='" + code + '\'' +
+                    '}';
         }
     }
 }
