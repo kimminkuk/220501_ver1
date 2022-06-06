@@ -1,9 +1,7 @@
 package quant._ver1.web.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.jsoup.select.Selector;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,7 +11,6 @@ import quant._ver1.web.data.Sangjang;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
-import javax.management.Query;
 import java.io.IOException;
 import java.util.*;
 
@@ -51,27 +48,50 @@ public class HelloController {
         int temp_max = 100;
         List company_list = new ArrayList();
         List<Company> company_market_code = new ArrayList();
+        List<CompanyCompareClass> company_per_code = new ArrayList();
+        List<CompanyCompareClass> company_pbr_code = new ArrayList();
         for (int i = 0; i < temp_max; i++) {
             String companySixCode = companyCodeCnvToSixNumber(company_code[i]);
 
             String URL = "https://finance.naver.com/item/sise.naver?code=" + companySixCode;
             Document doc = Jsoup.connect(URL).get();
             Elements select = doc.select("#_sise_market_sum");
+
             company_market_code.add(new Company(companyMarketCapCnvToInteger(select.text()), companySixCode, company_name[i]));
         }
-        Collections.sort(company_market_code);
-        for (Company company : company_market_code) {
 
+        Collections.sort(company_market_code);
+        int max_company_cnt = 0;
+        for (Company company : company_market_code) {
+            System.out.println("[marketCap]:"+ company.marketCap + "  company.code: " + company.code + " company.name " + company.name);
             String URL_2 = "https://finance.naver.com/item/sise.naver?code=" + company.code;
             Document doc_2 = Jsoup.connect(URL_2).get();
-            Elements select_2 = doc_2.select("#_sise_per");
+
             //PER
-            System.out.println("company.marketCap = " + company.marketCap + " code = " + company.code + " 회사 = " + company.name + " per = " + select_2.text());
+            Elements select_per = doc_2.select("#_sise_per");
+            company_per_code.add(new CompanyCompareClass(companyFigureCnvToFloat(select_per.text()), company.code, company.name));
+
+            //PBR
+            Elements select_pbr = doc_2.select("#tab_con1 > div:nth-child(5) > table > tbody:nth-child(3) > tr:nth-child(2) > td");
+            System.out.println("select_pbr = " + select_pbr + "company name: " + company.name);
+            //company_pbr_code.add(new CompanyCompareClass(companyFigureCnvToFloat(select_pbr.text()), company.code, company.name));
 
             //차라리 백데이터? 아무튼 그 어떤날에 얼마인지 확인하는거 해야함
+            max_company_cnt = max_company_cnt + 1;
+            if (max_company_cnt == 50) {
+                break;
+            }
+        }
+        Collections.sort(company_per_code);
+        Collections.sort(company_pbr_code);
+
+        for (CompanyCompareClass companyCompareClass : company_pbr_code) {
+            System.out.println("[pbr]:"+ companyCompareClass.compareFloat + "  company.code: " + companyCompareClass.code + " company.name " + companyCompareClass.name);
         }
 
-
+        for (CompanyCompareClass companyCompareClass : company_per_code) {
+            System.out.println("[per]:"+ companyCompareClass.compareFloat + "  company.code: " + companyCompareClass.code + " company.name " + companyCompareClass.name);
+        }
 
         return "sangjang";
     }
@@ -113,6 +133,25 @@ public class HelloController {
     public Integer companyMarketCapCnvToInteger(String company_text) {
         String s = company_text.replaceAll(",", "");
         return Integer.valueOf(s);
+    }
+
+    public Float companyFigureCnvToFloat(String company_text) {
+        if (company_text.isEmpty()) {
+            return Float.valueOf(-99999);
+        }
+        company_text = company_text.replaceAll(",", "");
+        if (company_text.compareTo("N/A") == 0) {
+            return Float.valueOf(-5555);
+        } else {
+            if (company_text.charAt(0) == '-') {
+                return -Float.valueOf(company_text.substring(1));
+            } else if (company_text.charAt(0) == '∞') {
+                System.out.println("company_text = " + company_text);
+                return Float.valueOf(-8888);
+            } else {
+                return Float.valueOf(company_text);
+            }
+        }
     }
 
     static class Hello {
@@ -178,6 +217,28 @@ public class HelloController {
                     "marketCap=" + marketCap +
                     ", code='" + code + '\'' +
                     '}';
+        }
+    }
+    static class CompanyCompareClass implements Comparable<CompanyCompareClass>{
+        private float compareFloat;
+        private String code;
+        private String name;
+
+        public CompanyCompareClass(float compareFloat, String code, String name) {
+            this.compareFloat = compareFloat;
+            this.code = code;
+            this.name = name;
+        }
+
+        @Override
+        public int compareTo(CompanyCompareClass c) {
+            if (this.compareFloat > c.compareFloat) {
+                return 1;
+            } else if (this.compareFloat < c.compareFloat) {
+                return -1;
+            } else {
+                return 0;
+            }
         }
     }
 }
