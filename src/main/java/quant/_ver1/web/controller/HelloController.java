@@ -50,6 +50,8 @@ public class HelloController {
         List<Company> company_market_code = new ArrayList();
         List<CompanyCompareClass> company_per_code = new ArrayList();
         List<CompanyCompareClass> company_pbr_code = new ArrayList();
+        HashMap<String, Integer> company_point_hash = new HashMap();
+
         for (int i = 0; i < temp_max; i++) {
             String companySixCode = companyCodeCnvToSixNumber(company_code[i]);
 
@@ -61,37 +63,61 @@ public class HelloController {
         }
 
         Collections.sort(company_market_code);
+
         int max_company_cnt = 0;
         for (Company company : company_market_code) {
+            company_point_hash.put(company.code, 0);
             System.out.println("[marketCap]:"+ company.marketCap + "  company.code: " + company.code + " company.name " + company.name);
-            String URL_2 = "https://finance.naver.com/item/sise.naver?code=" + company.code;
+            //String URL_2 = "https://finance.naver.com/item/sise.naver?code=" + company.code;
+
+            String URL_2 = "https://finance.naver.com/item/main.naver?code=" + company.code;
             Document doc_2 = Jsoup.connect(URL_2).get();
 
             //PER
-            Elements select_per = doc_2.select("#_sise_per");
+            //Elements select_per = doc_2.select("#_sise_per");
+            Elements select_per = doc_2.select("#content > div.section.trade_compare > table > tbody > tr:nth-child(13) > td:nth-child(2)");
+            System.out.println("select_per = " + select_per + " company name: " + company.name);
             company_per_code.add(new CompanyCompareClass(companyFigureCnvToFloat(select_per.text()), company.code, company.name));
 
             //PBR
-            Elements select_pbr = doc_2.select("#tab_con1 > div:nth-child(5) > table > tbody:nth-child(3) > tr:nth-child(2) > td");
+            //#content > div.section.trade_compare > table > tbody > tr:nth-child(14) > td:nth-child(2)
+            Elements select_pbr = doc_2.select("#content > div.section.trade_compare > table > tbody > tr:nth-child(14) > td:nth-child(2)");
             System.out.println("select_pbr = " + select_pbr + "company name: " + company.name);
-            //company_pbr_code.add(new CompanyCompareClass(companyFigureCnvToFloat(select_pbr.text()), company.code, company.name));
+            company_pbr_code.add(new CompanyCompareClass(companyFigureCnvToFloat(select_pbr.text()), company.code, company.name));
 
             //차라리 백데이터? 아무튼 그 어떤날에 얼마인지 확인하는거 해야함
             max_company_cnt = max_company_cnt + 1;
-            if (max_company_cnt == 50) {
+            if (max_company_cnt == 100) {
                 break;
             }
         }
         Collections.sort(company_per_code);
         Collections.sort(company_pbr_code);
 
+        int temp1 = 1;
         for (CompanyCompareClass companyCompareClass : company_pbr_code) {
+            int temp = company_point_hash.get(companyCompareClass.code);
+            if (companyCompareClass.compareFloat == 99999) {
+                company_point_hash.put(companyCompareClass.code, temp + 500);
+            } else {
+                company_point_hash.put(companyCompareClass.code, temp1+temp);
+            }
             System.out.println("[pbr]:"+ companyCompareClass.compareFloat + "  company.code: " + companyCompareClass.code + " company.name " + companyCompareClass.name);
+            temp1 = temp1 + 1;
+        }
+        int temp2 = 1;
+        for (CompanyCompareClass companyCompareClass : company_per_code) {
+            int temp = company_point_hash.get(companyCompareClass.code);
+            if (companyCompareClass.compareFloat == 99999) {
+                company_point_hash.put(companyCompareClass.code, temp + 500);
+            } else {
+                company_point_hash.put(companyCompareClass.code, temp2+temp);
+            }
+            System.out.println("[per]:"+ companyCompareClass.compareFloat + "  company.code: " + companyCompareClass.code + " company.name " + companyCompareClass.name);
+
+            temp2 = temp2 + 1;
         }
 
-        for (CompanyCompareClass companyCompareClass : company_per_code) {
-            System.out.println("[per]:"+ companyCompareClass.compareFloat + "  company.code: " + companyCompareClass.code + " company.name " + companyCompareClass.name);
-        }
 
         return "sangjang";
     }
@@ -136,18 +162,22 @@ public class HelloController {
     }
 
     public Float companyFigureCnvToFloat(String company_text) {
+        int temp = 99999;
         if (company_text.isEmpty()) {
-            return Float.valueOf(-99999);
+            return Float.valueOf(temp);
         }
         company_text = company_text.replaceAll(",", "");
         if (company_text.compareTo("N/A") == 0) {
-            return Float.valueOf(-5555);
+            return Float.valueOf(temp);
         } else {
             if (company_text.charAt(0) == '-') {
-                return -Float.valueOf(company_text.substring(1));
+                //return -Float.valueOf(company_text.substring(1));
+                return Float.valueOf(temp);
             } else if (company_text.charAt(0) == '∞') {
-                System.out.println("company_text = " + company_text);
-                return Float.valueOf(-8888);
+                return Float.valueOf(temp);
+            } else if (company_text.charAt(0) == '.') {
+                company_text = '0' + company_text;
+                return Float.valueOf(company_text);
             } else {
                 return Float.valueOf(company_text);
             }
